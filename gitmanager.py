@@ -319,14 +319,20 @@ class GitManager(tk.Tk):
                  font=FONT_SM, anchor="w").pack(fill="x", padx=8)
 
     def _build_sidebar(self, parent):
-        hdr = tk.Frame(parent, bg=BG3)
+        v_pane = ttk.PanedWindow(parent, orient="vertical")
+        v_pane.pack(fill="both", expand=True)
+
+        repo_frame = ttk.Frame(v_pane, style="Sidebar.TFrame")
+        v_pane.add(repo_frame, weight=3)
+
+        hdr = tk.Frame(repo_frame, bg=BG3)
         hdr.pack(fill="x", padx=6, pady=(6, 2))
         tk.Label(hdr, text="REPOSITORIES", bg=BG3, fg=FG2,
                  font=("Consolas", 9, "bold")).pack(side="left")
         ttk.Button(hdr, text="＋", width=3, command=self._add_repo,
                    style="TButton").pack(side="right")
 
-        sf = tk.Frame(parent, bg=BG3)
+        sf = tk.Frame(repo_frame, bg=BG3)
         sf.pack(fill="x", padx=6, pady=2)
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", lambda *_: self._filter_repos()
@@ -338,20 +344,53 @@ class GitManager(tk.Tk):
         entry.bind("<FocusIn>", lambda e: entry.delete(0, "end")
                    if entry.get() == "Search…" else None)
 
-        self.repo_tree = ttk.Treeview(parent, columns=("name",),
+        repo_body = tk.Frame(repo_frame, bg=BG3)
+        repo_body.pack(fill="both", expand=True, padx=6, pady=4)
+
+        self.repo_tree = ttk.Treeview(repo_body, columns=("name",),
                                       show="tree", selectmode="browse")
         self.repo_tree.column("#0",   width=26,  minwidth=26,  stretch=False)
         self.repo_tree.column("name", width=260, stretch=True)
         self.repo_tree.tag_configure("group", foreground=FG2,
                                      font=("Consolas", 9, "bold"))
 
-        sc = ttk.Scrollbar(parent, orient="vertical", command=self.repo_tree.yview)
+        sc = ttk.Scrollbar(repo_body, orient="vertical", command=self.repo_tree.yview)
         self.repo_tree.configure(yscrollcommand=sc.set)
-        self.repo_tree.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=4)
-        sc.pack(side="left", fill="y", pady=4)
+        self.repo_tree.pack(side="left", fill="both", expand=True)
+        sc.pack(side="left", fill="y")
 
         self.repo_tree.bind("<<TreeviewSelect>>", self._on_repo_select)
         self.repo_tree.bind("<Button-3>",          self._on_repo_right_click)
+
+        branch_frame = ttk.Frame(v_pane, style="Sidebar.TFrame")
+        v_pane.add(branch_frame, weight=2)
+
+        bhdr = tk.Frame(branch_frame, bg=BG3)
+        bhdr.pack(fill="x", padx=6, pady=(6, 2))
+        tk.Label(bhdr, text="BRANCHES", bg=BG3, fg=FG2,
+                 font=("Consolas", 9, "bold")).pack(side="left")
+        ttk.Button(bhdr, text="＋ Branch", command=self._create_branch,
+                   style="TButton").pack(side="right")
+
+        branch_body = tk.Frame(branch_frame, bg=BG3)
+        branch_body.pack(fill="both", expand=True, padx=6, pady=4)
+
+        self.left_branch_tree = ttk.Treeview(branch_body, columns=("name",),
+                                             show="tree", selectmode="browse")
+        self.left_branch_tree.column("#0", width=26, minwidth=26, stretch=False)
+        self.left_branch_tree.column("name", width=260, stretch=True)
+        self.left_branch_tree.tag_configure("local", foreground=FG)
+        self.left_branch_tree.tag_configure("remote", foreground=FG2)
+        self.left_branch_tree.tag_configure("current", foreground=ACCENT, font=FONT_BOLD)
+        self.left_branch_tree.tag_configure("group", foreground=FG2, font=("Consolas", 9, "bold"))
+
+        bsc = ttk.Scrollbar(branch_body, orient="vertical", command=self.left_branch_tree.yview)
+        self.left_branch_tree.configure(yscrollcommand=bsc.set)
+        self.left_branch_tree.pack(side="left", fill="both", expand=True)
+        bsc.pack(side="left", fill="y")
+        
+        self.left_branch_tree.bind("<Button-3>", self._on_left_branch_right_click)
+        self.left_branch_tree.bind("<Double-1>", self._on_left_branch_double_click)
 
     def _build_detail(self, parent):
         # header card
@@ -940,6 +979,19 @@ class GitManager(tk.Tk):
             )
         self.branch_tree.tag_configure("current", foreground=ACCENT)
 
+        if hasattr(self, "left_branch_tree"):
+            for item in self.left_branch_tree.get_children():
+                self.left_branch_tree.delete(item)
+            
+            loc_id = self.left_branch_tree.insert("", "end", text="▼", values=("  Local Branches",), tags=("group",), open=True)
+            rem_id = self.left_branch_tree.insert("", "end", text="▶", values=("  Remote Branches",), tags=("group",), open=False)
+            
+            for bname, btype, tracking, current in branches:
+                parent_id = loc_id if btype == "local" else rem_id
+                tag = "current" if current else btype
+                icon = "★" if current else "⎇"
+                self.left_branch_tree.insert(parent_id, "end", text="", values=(f"  {icon}  {bname}",), tags=(tag, bname, btype))
+
     # ── Commit selection & detail ─────────────
 
     def _on_commit_select(self, event=None):
@@ -1424,7 +1476,111 @@ class GitManager(tk.Tk):
         self.detail_branch.config(text="")
         self.detail_status.config(text="")
         self.detail_url.config(text="")
+        if hasattr(self, "left_branch_tree"):
+            for item in self.left_branch_tree.get_children():
+                self.left_branch_tree.delete(item)
         self._clear_diff()
+
+    # ── Left Branch Tree Methods ──────────────────
+
+    def _create_branch(self):
+        if not self.selected_repo:
+            messagebox.showinfo("No selection", "Select a repository first.")
+            return
+        new_branch = simpledialog.askstring("Create Branch", "Enter new branch name:", parent=self)
+        if not new_branch:
+            return
+        
+        path = self.selected_repo["path"]
+        rc, out, err = run_git(["checkout", "-b", new_branch], path)
+        if rc == 0:
+            self._log(f"Created and checked out branch '{new_branch}'", "success")
+            self._load_detail_tabs()
+            self._refresh_all_status()
+        else:
+            self._log(f"Failed to create branch '{new_branch}': {err or out}", "error")
+            messagebox.showerror("Error", err or out)
+
+    def _on_left_branch_right_click(self, event):
+        item = self.left_branch_tree.identify_row(event.y)
+        if not item:
+            return
+        self.left_branch_tree.selection_set(item)
+        tags = self.left_branch_tree.item(item, "tags")
+        if "group" in tags:
+            return
+            
+        bname = tags[1]
+        btype = tags[2]
+        
+        menu = tk.Menu(self, tearoff=0, bg=BG3, fg=FG,
+                       activebackground=ACCENT, activeforeground=FG,
+                       font=FONT_SM, bd=0, relief="flat")
+        
+        if btype == "local":
+            menu.add_command(label="✓  Checkout", command=lambda: self._checkout_branch(bname))
+            menu.add_separator()
+            menu.add_command(label="✕  Delete", command=lambda: self._delete_branch(bname, False))
+            menu.add_command(label="✕  Force Delete", command=lambda: self._delete_branch(bname, True))
+        else:
+            menu.add_command(label="✓  Checkout (Track)", command=lambda: self._checkout_remote_branch(bname))
+            
+        menu.post(event.x_root, event.y_root)
+
+    def _on_left_branch_double_click(self, event):
+        item = self.left_branch_tree.identify_row(event.y)
+        if not item:
+            return
+        tags = self.left_branch_tree.item(item, "tags")
+        if "group" in tags:
+            return
+            
+        bname = tags[1]
+        btype = tags[2]
+        
+        if btype == "local":
+            self._checkout_branch(bname)
+        else:
+            self._checkout_remote_branch(bname)
+
+    def _checkout_branch(self, bname):
+        if not self.selected_repo: return
+        path = self.selected_repo["path"]
+        rc, out, err = run_git(["checkout", bname], path)
+        if rc == 0:
+            self._log(f"Checked out branch '{bname}'", "success")
+            self._load_detail_tabs()
+            self._refresh_all_status()
+        else:
+            self._log(f"Failed to checkout '{bname}': {err or out}", "error")
+            messagebox.showerror("Error", err or out)
+
+    def _checkout_remote_branch(self, bname):
+        if not self.selected_repo: return
+        path = self.selected_repo["path"]
+        local_name = bname.split("/", 1)[-1] if "/" in bname else bname
+        rc, out, err = run_git(["checkout", "-t", bname], path)
+        if rc == 0:
+            self._log(f"Checked out tracking branch '{local_name}'", "success")
+            self._load_detail_tabs()
+            self._refresh_all_status()
+        else:
+            self._log(f"Failed to checkout remote '{bname}': {err or out}", "error")
+            messagebox.showerror("Error", err or out)
+
+    def _delete_branch(self, bname, force=False):
+        if not self.selected_repo: return
+        if not messagebox.askyesno("Delete Branch", f"Are you sure you want to delete '{bname}'?"):
+            return
+        path = self.selected_repo["path"]
+        flag = "-D" if force else "-d"
+        rc, out, err = run_git(["branch", flag, bname], path)
+        if rc == 0:
+            self._log(f"Deleted branch '{bname}'", "success")
+            self._load_detail_tabs()
+        else:
+            self._log(f"Failed to delete branch '{bname}': {err or out}", "error")
+            messagebox.showerror("Error", err or out)
 
     # ── Context menu ──────────────────────────
 
