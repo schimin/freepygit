@@ -516,15 +516,16 @@ class GitManager(tk.Tk):
 
         btn_frame = tk.Frame(card, bg=BG2)
         btn_frame.pack(side="right", padx=10, pady=8)
-        for label, cmd in [
-            ("⟳ Fetch",     lambda: self._repo_op("fetch")),
-            ("↓ Pull",      lambda: self._repo_op("pull")),
-            ("↑ Push",      lambda: self._repo_op("push")),
-            ("Open Folder", self._open_folder),
-            ("Terminal",    self._open_terminal),
-        ]:
-            ttk.Button(btn_frame, text=label, command=cmd,
-                       style="TButton").pack(side="left", padx=2)
+        
+        self.btn_fetch = ttk.Button(btn_frame, text="⟳ Fetch", command=lambda: self._repo_op("fetch"), style="TButton")
+        self.btn_fetch.pack(side="left", padx=2)
+        self.btn_pull = ttk.Button(btn_frame, text="↓ Pull", command=lambda: self._repo_op("pull"), style="TButton")
+        self.btn_pull.pack(side="left", padx=2)
+        self.btn_push = ttk.Button(btn_frame, text="↑ Push", command=lambda: self._repo_op("push"), style="TButton")
+        self.btn_push.pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="Open Folder", command=self._open_folder, style="TButton").pack(side="left", padx=2)
+        ttk.Button(btn_frame, text="Terminal", command=self._open_terminal, style="TButton").pack(side="left", padx=2)
+        
         ttk.Button(btn_frame, text="✕ Remove", command=self._remove_repo,
                    style="Danger.TButton").pack(side="left", padx=2)
 
@@ -1015,11 +1016,22 @@ class GitManager(tk.Tk):
         color  = STATUS_COLORS.get(status, FG2)
         icon   = STATUS_ICONS.get(status, "?")
         url    = info.get("remote_url", "")
+        ahead  = info.get("ahead", 0)
+        behind = info.get("behind", 0)
+
+        extras = ""
+        if ahead:  extras += f" ↑{ahead}"
+        if behind: extras += f" ↓{behind}"
 
         self.detail_name.config(text=r["name"])
-        self.detail_branch.config(text=f"  ⎇ {info.get('branch','?')}")
+        self.detail_branch.config(text=f"  ⎇ {info.get('branch','?')}{extras}")
         self.detail_status.config(text=f"  {icon} {status}", fg=color)
         self.detail_url.config(text=url[:80] + "…" if len(url) > 80 else url)
+
+        if hasattr(self, 'btn_push'):
+            self.btn_push.config(text=f"↑ Push ({ahead})" if ahead else "↑ Push")
+        if hasattr(self, 'btn_pull'):
+            self.btn_pull.config(text=f"↓ Pull ({behind})" if behind else "↓ Pull")
 
     def _load_detail_tabs(self):
         if not self.selected_repo:
