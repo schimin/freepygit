@@ -16,7 +16,7 @@ CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".gitmanager_repos.json")
 def run_git(args, cwd, timeout=60):
     try:
         result = subprocess.run(
-            ["git"] + args,
+            ["git", "-c", "color.ui=false", "-c", "core.quotepath=false"] + args,
             cwd=cwd,
             capture_output=True,
             text=True,
@@ -329,7 +329,8 @@ class GitManager(tk.Tk):
         sf = tk.Frame(parent, bg=BG3)
         sf.pack(fill="x", padx=6, pady=2)
         self.search_var = tk.StringVar()
-        self.search_var.trace_add("write", lambda *_: self._filter_repos())
+        self.search_var.trace_add("write", lambda *_: self._filter_repos()
+                                  if hasattr(self, "repo_tree") else None)
         entry = tk.Entry(sf, textvariable=self.search_var, bg=BG2, fg=FG,
                          insertbackground=FG, relief="flat", font=FONT_SM, bd=4)
         entry.pack(fill="x")
@@ -422,6 +423,9 @@ class GitManager(tk.Tk):
         self.log_tree.column("message", width=380, stretch=True)
         self.log_tree.column("author",  width=130, minwidth=100, stretch=False)
 
+        self.log_tree.tag_configure("working_tree", foreground="#fbbf24",
+                                    font=("Consolas", 10, "bold"))
+
         ys = ttk.Scrollbar(left_frame, orient="vertical",   command=self.log_tree.yview)
         xs = ttk.Scrollbar(left_frame, orient="horizontal", command=self.log_tree.xview)
         self.log_tree.configure(yscrollcommand=ys.set, xscrollcommand=xs.set)
@@ -448,6 +452,51 @@ class GitManager(tk.Tk):
         )
         self.commit_detail_label.pack(fill="x", padx=6, pady=4)
 
+        # staging panel (hidden by default)
+        self._staging_panel = tk.Frame(right_frame, bg="#252638")
+
+        _stg_hdr = tk.Frame(self._staging_panel, bg="#2d2f45", height=28)
+        _stg_hdr.pack(fill="x")
+        _stg_hdr.pack_propagate(False)
+        tk.Label(_stg_hdr, text="  Stage files for commit",
+                 bg="#2d2f45", fg="#fbbf24", font=("Consolas", 10, "bold"),
+                 anchor="w").pack(side="left", padx=6, pady=4)
+
+        _stg_lo = tk.Frame(self._staging_panel, bg="#252638")
+        _stg_lo.pack(fill="both", expand=True, padx=6, pady=4)
+        _stg_cv = tk.Canvas(_stg_lo, bg="#252638", bd=0, highlightthickness=0)
+        _stg_sb = ttk.Scrollbar(_stg_lo, orient="vertical", command=_stg_cv.yview)
+        self._stg_inner = tk.Frame(_stg_cv, bg="#252638")
+        self._stg_inner.bind("<Configure>",
+            lambda e: _stg_cv.configure(scrollregion=_stg_cv.bbox("all")))
+        _stg_cv.create_window((0, 0), window=self._stg_inner, anchor="nw")
+        _stg_cv.configure(yscrollcommand=_stg_sb.set)
+        _stg_cv.pack(side="left", fill="both", expand=True)
+        _stg_sb.pack(side="right", fill="y")
+        _stg_cv.bind("<MouseWheel>",
+                     lambda e: _stg_cv.yview_scroll(-1*(e.delta//120), "units"))
+        self._stg_canvas = _stg_cv
+
+        _stg_br = tk.Frame(self._staging_panel, bg="#252638")
+        _stg_br.pack(fill="x", padx=6, pady=(0, 4))
+        ttk.Button(_stg_br, text="Select All",
+                   command=self._stage_select_all).pack(side="left", padx=2)
+        ttk.Button(_stg_br, text="Select None",
+                   command=self._stage_select_none).pack(side="left", padx=2)
+
+        _stg_mf = tk.Frame(self._staging_panel, bg="#252638")
+        _stg_mf.pack(fill="x", padx=6, pady=(0, 6))
+        tk.Label(_stg_mf, text="Commit message:", bg="#252638", fg="#9496b0",
+                 font=("Consolas", 9), anchor="w").pack(anchor="w")
+        self._commit_msg_text = tk.Text(_stg_mf, bg="#2d2f45", fg="#e2e4f0",
+                                        font=("Consolas", 9), relief="flat",
+                                        height=3, insertbackground="#e2e4f0", bd=4)
+        self._commit_msg_text.pack(fill="x", pady=(2, 4))
+        ttk.Button(_stg_mf, text="Commit", command=self._do_commit,
+                   style="Accent.TButton").pack(anchor="e")
+
+        self._stg_check_vars = []  # list of (BooleanVar, status, filepath)
+
         # vertical split inside right panel: file list (top) + diff (bottom)
         v_pane = ttk.PanedWindow(right_frame, orient="vertical")
         v_pane.pack(fill="both", expand=True)
@@ -469,6 +518,7 @@ class GitManager(tk.Tk):
         self.commit_files_tree.tag_configure("D",  foreground=RED)
         self.commit_files_tree.tag_configure("R",  foreground=BLUE)
         self.commit_files_tree.tag_configure("C",  foreground=BLUE)
+        self.commit_files_tree.tag_configure("??", foreground=FG2)
 
         cfs_sc = ttk.Scrollbar(files_frame, orient="vertical",
                                command=self.commit_files_tree.yview)
@@ -831,9 +881,12 @@ class GitManager(tk.Tk):
         changes = []
         if rc == 0:
             for line in out.splitlines():
-                if line:
-                    st = line[:2].strip() or line[0]
-                    fn = line[3:]
+                line = line.lstrip('\ufeff')
+                if len(line) > 2:
+                    st = line[:2].strip() or "?"
+                    fn = line[2:].lstrip()
+                    if fn.startswith('"') and fn.endswith('"'):
+                        fn = fn[1:-1]
                     changes.append((st, fn))
 
         rc2, out2, _ = run_git(["branch", "-vva"], path)
@@ -858,6 +911,14 @@ class GitManager(tk.Tk):
     def _populate_tabs(self, commits, changes, branches):
         for item in self.log_tree.get_children():
             self.log_tree.delete(item)
+
+        _n = len(changes)
+        _wt = ("Working Tree / Index  (" + str(_n) + " changed)"
+               if _n else "Working Tree / Index  (clean)")
+        self.log_tree.insert("", "end", iid="__working_tree__",
+                             values=("●", "now", _wt, ""),
+                             tags=("working_tree",) if _n else ())
+
         for c in commits:
             # store full hash as item iid so we can retrieve it on selection
             self.log_tree.insert("", "end", iid=c["hash"],
@@ -885,28 +946,134 @@ class GitManager(tk.Tk):
         sel = self.log_tree.selection()
         if not sel or not self.selected_repo:
             return
-        commit_hash = sel[0]   # iid == full hash
+        commit_hash = sel[0]
+
+        if commit_hash == "__working_tree__":
+            self._selected_commit_hash = None
+            self.commit_detail_label.config(
+                text="  ● Working Tree / Index — stage files and commit",
+                fg=YELLOW
+            )
+            self._show_staging_panel()
+            return
+
+        self._staging_panel.pack_forget()
         self._selected_commit_hash = commit_hash
         short = commit_hash[:8]
 
-        # update header label
         values = self.log_tree.item(commit_hash, "values")
-        msg    = values[2] if len(values) > 2 else ""
+        msg = values[2] if len(values) > 2 else ""
         self.commit_detail_label.config(
-            text=f"  ⊙ {short}  —  {msg[:80]}", fg=ACCENT
+            text="  ⊙ " + short + "  —  " + msg[:80], fg=ACCENT
         )
 
-        # clear file list and diff
         for item in self.commit_files_tree.get_children():
             self.commit_files_tree.delete(item)
         self._clear_commit_diff()
 
-        # load file list in background
         threading.Thread(
             target=self._bg_load_commit_files,
             args=(self.selected_repo["path"], commit_hash),
             daemon=True
         ).start()
+
+    # ── Staging panel helpers ─────────────────
+
+    def _show_staging_panel(self):
+        if not self.selected_repo:
+            return
+        path = self.selected_repo["path"]
+        rc, out, _ = run_git(["status", "--porcelain"], path)
+        changes = []
+        if rc == 0:
+            for line in out.splitlines():
+                line = line.lstrip('\ufeff')
+                if len(line) > 2:
+                    st = line[:2].strip() or "?"
+                    fn = line[2:].lstrip()
+                    if fn.startswith('"') and fn.endswith('"'):
+                        fn = fn[1:-1]
+                    changes.append((st, fn))
+
+        for w in self._stg_inner.winfo_children():
+            w.destroy()
+        self._stg_check_vars.clear()
+
+        for st, fn in changes:
+            var = tk.BooleanVar(value=True)
+            color = {"M": YELLOW, "A": GREEN, "D": RED, "??": FG2}.get(st, FG)
+            row = tk.Frame(self._stg_inner, bg=BG2)
+            row.pack(fill="x", pady=1, padx=4)
+            tk.Checkbutton(row, variable=var, bg=BG2, fg=FG,
+                           activebackground=BG2, selectcolor=BG3,
+                           relief="flat").pack(side="left")
+            lbl_text = st + "  " + fn
+            tk.Label(row, text=lbl_text, bg=BG2, fg=color,
+                     font=FONT_SM, anchor="w").pack(side="left")
+            self._stg_check_vars.append((var, st, fn))
+
+        self._stg_canvas.update_idletasks()
+        self._stg_canvas.configure(
+            scrollregion=self._stg_canvas.bbox("all"))
+        self._staging_panel.pack(fill="both", expand=False,
+                                 before=self.commit_files_tree.master.master)
+        for item in self.commit_files_tree.get_children():
+            self.commit_files_tree.delete(item)
+        self._clear_commit_diff()
+
+    def _stage_select_all(self):
+        for var, _, _ in self._stg_check_vars:
+            var.set(True)
+
+    def _stage_select_none(self):
+        for var, _, _ in self._stg_check_vars:
+            var.set(False)
+
+    def _do_commit(self):
+        if not self.selected_repo:
+            return
+        msg = self._commit_msg_text.get("1.0", "end").strip()
+        if not msg:
+            messagebox.showwarning("Commit", "Please enter a commit message.")
+            return
+        selected = [(st, fn) for var, st, fn in self._stg_check_vars
+                    if var.get()]
+        if not selected:
+            messagebox.showwarning("Commit", "No files selected for commit.")
+            return
+        path = self.selected_repo["path"]
+
+        def _bg():
+            errors = []
+            for st, fn in selected:
+                rc_a, o_a, e_a = run_git(
+                    ["add", "--force", "--", fn], path)
+                if rc_a != 0:
+                    errors.append(
+                        "git add '" + fn + "': " + (e_a or o_a))
+            if errors:
+                emsg = "\n".join(errors)
+                self.after(0, self._log,
+                           "git add failed: " + emsg, "error")
+                self.after(0, messagebox.showerror,
+                           "git add failed", emsg)
+                return
+            rc, out, err = run_git(["commit", "-m", msg], path)
+            if rc == 0:
+                self.after(0, self._log,
+                           "Committed: " + msg[:60], "success")
+                self.after(0, self._commit_msg_text.delete,
+                           "1.0", "end")
+                self.after(0, self._staging_panel.pack_forget)
+                self.after(0, self._load_detail_tabs)
+            else:
+                full = err or out or "unknown error"
+                self.after(0, self._log,
+                           "Commit failed: " + full, "error")
+                self.after(0, messagebox.showerror,
+                           "Commit failed", full)
+
+        threading.Thread(target=_bg, daemon=True).start()
 
     def _bg_load_commit_files(self, repo_path, commit_hash):
         files = get_commit_files(repo_path, commit_hash)
