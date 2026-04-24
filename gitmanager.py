@@ -156,29 +156,127 @@ def get_file_diff(repo_path, filepath):
 #  Colours / fonts
 # ──────────────────────────────────────────────
 
-BG       = "#1e1f2e"
-BG2      = "#252638"
-BG3      = "#2d2f45"
-BG_DIFF  = "#12131e"
-BG_GUT   = "#161726"
-ACCENT   = "#7c6af7"
-ACCENT2  = "#5b54d4"
-GREEN    = "#4ade80"
-YELLOW   = "#fbbf24"
-RED      = "#f87171"
-BLUE     = "#60a5fa"
-FG       = "#e2e4f0"
-FG2      = "#9496b0"
-BORDER   = "#3a3c55"
+THEMES = {
+    "default": {
+        "BG": "#1e1f2e",
+        "BG2": "#252638",
+        "BG3": "#2d2f45",
+        "BG_DIFF": "#12131e",
+        "BG_GUT": "#161726",
+        "ACCENT": "#7c6af7",
+        "ACCENT2": "#5b54d4",
+        "GREEN": "#4ade80",
+        "YELLOW": "#fbbf24",
+        "RED": "#f87171",
+        "BLUE": "#60a5fa",
+        "FG": "#e2e4f0",
+        "FG2": "#9496b0",
+        "BORDER": "#3a3c55",
+        "DIFF_ADD_BG": "#0d2b0d",
+        "DIFF_ADD_FG": "#4ade80",
+        "DIFF_DEL_BG": "#2b0d0d",
+        "DIFF_DEL_FG": "#f87171",
+        "DIFF_HDR_BG": "#0d1530",
+        "DIFF_HDR_FG": "#60a5fa",
+        "DIFF_META_FG": "#6a6c88",
+        "DIFF_LNO_FG": "#44465e",
+        "DANGER_BG": "#4b1a1a",
+        "DANGER_ACTIVE": "#6b2020",
+    },
+    "white": {
+        "BG": "#f4f4f4",
+        "BG2": "#ffffff",
+        "BG3": "#e8e8e8",
+        "BG_DIFF": "#ffffff",
+        "BG_GUT": "#f0f0f0",
+        "ACCENT": "#0078d7",
+        "ACCENT2": "#005a9e",
+        "GREEN": "#107c10",
+        "YELLOW": "#d78315",
+        "RED": "#d13438",
+        "BLUE": "#0078d7",
+        "FG": "#333333",
+        "FG2": "#666666",
+        "BORDER": "#cccccc",
+        "DIFF_ADD_BG": "#e6ffed",
+        "DIFF_ADD_FG": "#22863a",
+        "DIFF_DEL_BG": "#ffeef0",
+        "DIFF_DEL_FG": "#cb2431",
+        "DIFF_HDR_BG": "#f1f8ff",
+        "DIFF_HDR_FG": "#0366d6",
+        "DIFF_META_FG": "#6a737d",
+        "DIFF_LNO_FG": "#babbc0",
+        "DANGER_BG": "#f8d7da",
+        "DANGER_ACTIVE": "#f5c2c7",
+    },
+    "dark": {
+        "BG": "#1e1e1e",
+        "BG2": "#252526",
+        "BG3": "#2d2d30",
+        "BG_DIFF": "#1e1e1e",
+        "BG_GUT": "#1e1e1e",
+        "ACCENT": "#007acc",
+        "ACCENT2": "#005f9e",
+        "GREEN": "#89d185",
+        "YELLOW": "#cca700",
+        "RED": "#f14c4c",
+        "BLUE": "#3794ff",
+        "FG": "#cccccc",
+        "FG2": "#999999",
+        "BORDER": "#3e3e42",
+        "DIFF_ADD_BG": "#203820",
+        "DIFF_ADD_FG": "#89d185",
+        "DIFF_DEL_BG": "#3e2020",
+        "DIFF_DEL_FG": "#f14c4c",
+        "DIFF_HDR_BG": "#000000",
+        "DIFF_HDR_FG": "#569cd6",
+        "DIFF_META_FG": "#858585",
+        "DIFF_LNO_FG": "#858585",
+        "DANGER_BG": "#4b1a1a",
+        "DANGER_ACTIVE": "#6b2020",
+    }
+}
 
-DIFF_ADD_BG  = "#0d2b0d"
-DIFF_ADD_FG  = "#4ade80"
-DIFF_DEL_BG  = "#2b0d0d"
-DIFF_DEL_FG  = "#f87171"
-DIFF_HDR_BG  = "#0d1530"
-DIFF_HDR_FG  = "#60a5fa"
-DIFF_META_FG = "#6a6c88"
-DIFF_LNO_FG  = "#44465e"
+_theme_name = "default"
+if os.path.exists(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            _config_data = json.load(f)
+            _theme_name = _config_data.get("theme", "default")
+    except Exception:
+        pass
+
+if _theme_name not in THEMES:
+    _theme_name = "default"
+
+_theme = THEMES[_theme_name]
+
+BG       = _theme["BG"]
+BG2      = _theme["BG2"]
+BG3      = _theme["BG3"]
+BG_DIFF  = _theme["BG_DIFF"]
+BG_GUT   = _theme["BG_GUT"]
+ACCENT   = _theme["ACCENT"]
+ACCENT2  = _theme["ACCENT2"]
+GREEN    = _theme["GREEN"]
+YELLOW   = _theme["YELLOW"]
+RED      = _theme["RED"]
+BLUE     = _theme["BLUE"]
+FG       = _theme["FG"]
+FG2      = _theme["FG2"]
+BORDER   = _theme["BORDER"]
+
+DIFF_ADD_BG  = _theme["DIFF_ADD_BG"]
+DIFF_ADD_FG  = _theme["DIFF_ADD_FG"]
+DIFF_DEL_BG  = _theme["DIFF_DEL_BG"]
+DIFF_DEL_FG  = _theme["DIFF_DEL_FG"]
+DIFF_HDR_BG  = _theme["DIFF_HDR_BG"]
+DIFF_HDR_FG  = _theme["DIFF_HDR_FG"]
+DIFF_META_FG = _theme["DIFF_META_FG"]
+DIFF_LNO_FG  = _theme["DIFF_LNO_FG"]
+
+DANGER_BG     = _theme["DANGER_BG"]
+DANGER_ACTIVE = _theme["DANGER_ACTIVE"]
 
 FONT      = ("Consolas", 10)
 FONT_BOLD = ("Consolas", 10, "bold")
@@ -223,6 +321,7 @@ class GitManager(tk.Tk):
         self.selected_repo: dict | None = None
         self._op_queue: queue.Queue = queue.Queue()
         self._diff_job = None
+        self.current_theme = _theme_name
 
         self._setup_styles()
         self._build_ui()
@@ -268,9 +367,9 @@ class GitManager(tk.Tk):
         s.map("Accent.TButton",
               background=[("active", ACCENT2), ("pressed", ACCENT2)])
 
-        s.configure("Danger.TButton", background="#4b1a1a", foreground=RED,
+        s.configure("Danger.TButton", background=DANGER_BG, foreground=RED,
                     font=FONT_SM, relief="flat", borderwidth=0, padding=(8, 4))
-        s.map("Danger.TButton", background=[("active", "#6b2020")])
+        s.map("Danger.TButton", background=[("active", DANGER_ACTIVE)])
 
     # ── Layout ────────────────────────────────
 
@@ -292,6 +391,12 @@ class GitManager(tk.Tk):
         ]:
             ttk.Button(toolbar, text=label, command=cmd,
                        style=style_).pack(side="left", padx=3, pady=8)
+
+        # theme selector
+        self.theme_var = tk.StringVar(value=self.current_theme)
+        theme_cb = ttk.Combobox(toolbar, textvariable=self.theme_var, values=list(THEMES.keys()), state="readonly", width=8, font=FONT_SM)
+        theme_cb.pack(side="right", padx=10, pady=10)
+        theme_cb.bind("<<ComboboxSelected>>", self._on_theme_change)
 
         self.status_var = tk.StringVar(value="Ready")
         tk.Label(toolbar, textvariable=self.status_var, bg=BG3, fg=FG2,
@@ -462,7 +567,7 @@ class GitManager(tk.Tk):
         self.log_tree.column("message", width=380, stretch=True)
         self.log_tree.column("author",  width=130, minwidth=100, stretch=False)
 
-        self.log_tree.tag_configure("working_tree", foreground="#fbbf24",
+        self.log_tree.tag_configure("working_tree", foreground=YELLOW,
                                     font=("Consolas", 10, "bold"))
 
         ys = ttk.Scrollbar(left_frame, orient="vertical",   command=self.log_tree.yview)
@@ -492,20 +597,20 @@ class GitManager(tk.Tk):
         self.commit_detail_label.pack(fill="x", padx=6, pady=4)
 
         # staging panel (hidden by default)
-        self._staging_panel = tk.Frame(right_frame, bg="#252638")
+        self._staging_panel = tk.Frame(right_frame, bg=BG2)
 
-        _stg_hdr = tk.Frame(self._staging_panel, bg="#2d2f45", height=28)
+        _stg_hdr = tk.Frame(self._staging_panel, bg=BG3, height=28)
         _stg_hdr.pack(fill="x")
         _stg_hdr.pack_propagate(False)
         tk.Label(_stg_hdr, text="  Stage files for commit",
-                 bg="#2d2f45", fg="#fbbf24", font=("Consolas", 10, "bold"),
+                 bg=BG3, fg=YELLOW, font=("Consolas", 10, "bold"),
                  anchor="w").pack(side="left", padx=6, pady=4)
 
-        _stg_lo = tk.Frame(self._staging_panel, bg="#252638")
+        _stg_lo = tk.Frame(self._staging_panel, bg=BG2)
         _stg_lo.pack(fill="both", expand=True, padx=6, pady=4)
-        _stg_cv = tk.Canvas(_stg_lo, bg="#252638", bd=0, highlightthickness=0)
+        _stg_cv = tk.Canvas(_stg_lo, bg=BG2, bd=0, highlightthickness=0)
         _stg_sb = ttk.Scrollbar(_stg_lo, orient="vertical", command=_stg_cv.yview)
-        self._stg_inner = tk.Frame(_stg_cv, bg="#252638")
+        self._stg_inner = tk.Frame(_stg_cv, bg=BG2)
         self._stg_inner.bind("<Configure>",
             lambda e: _stg_cv.configure(scrollregion=_stg_cv.bbox("all")))
         _stg_cv.create_window((0, 0), window=self._stg_inner, anchor="nw")
@@ -516,20 +621,20 @@ class GitManager(tk.Tk):
                      lambda e: _stg_cv.yview_scroll(-1*(e.delta//120), "units"))
         self._stg_canvas = _stg_cv
 
-        _stg_br = tk.Frame(self._staging_panel, bg="#252638")
+        _stg_br = tk.Frame(self._staging_panel, bg=BG2)
         _stg_br.pack(fill="x", padx=6, pady=(0, 4))
         ttk.Button(_stg_br, text="Select All",
                    command=self._stage_select_all).pack(side="left", padx=2)
         ttk.Button(_stg_br, text="Select None",
                    command=self._stage_select_none).pack(side="left", padx=2)
 
-        _stg_mf = tk.Frame(self._staging_panel, bg="#252638")
+        _stg_mf = tk.Frame(self._staging_panel, bg=BG2)
         _stg_mf.pack(fill="x", padx=6, pady=(0, 6))
-        tk.Label(_stg_mf, text="Commit message:", bg="#252638", fg="#9496b0",
+        tk.Label(_stg_mf, text="Commit message:", bg=BG2, fg=FG2,
                  font=("Consolas", 9), anchor="w").pack(anchor="w")
-        self._commit_msg_text = tk.Text(_stg_mf, bg="#2d2f45", fg="#e2e4f0",
+        self._commit_msg_text = tk.Text(_stg_mf, bg=BG3, fg=FG,
                                         font=("Consolas", 9), relief="flat",
-                                        height=3, insertbackground="#e2e4f0", bd=4)
+                                        height=3, insertbackground=FG, bd=4)
         self._commit_msg_text.pack(fill="x", pady=(2, 4))
         ttk.Button(_stg_mf, text="Commit", command=self._do_commit,
                    style="Accent.TButton").pack(anchor="e")
@@ -786,7 +891,7 @@ class GitManager(tk.Tk):
     # ── Console tab ───────────────────────────
 
     def _build_console_tab(self, parent):
-        self.console_text = tk.Text(parent, bg="#0d0d1a", fg=GREEN,
+        self.console_text = tk.Text(parent, bg=BG_DIFF, fg=GREEN,
                                     font=("Consolas", 9), relief="flat",
                                     state="disabled", wrap="word",
                                     insertbackground=GREEN)
@@ -798,6 +903,14 @@ class GitManager(tk.Tk):
 
         self.console_text.tag_configure("error",   foreground=RED)
         self.console_text.tag_configure("success", foreground=GREEN)
+
+    def _on_theme_change(self, event=None):
+        new_theme = self.theme_var.get()
+        if new_theme == getattr(self, "current_theme", "default"):
+            return
+        self.current_theme = new_theme
+        self._save_config()
+        messagebox.showinfo("Theme Changed", "Please restart Git Manager to fully apply the new theme.")
         self.console_text.tag_configure("info",    foreground=BLUE)
         self.console_text.tag_configure("cmd",     foreground=YELLOW)
 
@@ -816,8 +929,11 @@ class GitManager(tk.Tk):
         self._rebuild_tree()
 
     def _save_config(self):
-        data = {"repos": [{"name": r["name"], "path": r["path"],
-                           "group": r.get("group", "")} for r in self.repos]}
+        data = {
+            "theme": getattr(self, "current_theme", "default"),
+            "repos": [{"name": r["name"], "path": r["path"],
+                       "group": r.get("group", "")} for r in self.repos]
+        }
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
