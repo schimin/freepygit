@@ -1019,6 +1019,9 @@ class GitManager(tk.Tk):
                                  before=self.commit_files_tree.master.master)
         for item in self.commit_files_tree.get_children():
             self.commit_files_tree.delete(item)
+        for st, fn in changes:
+            tag = st if st in ("M", "A", "D", "R", "??") else "M"
+            self.commit_files_tree.insert("", "end", values=(st, fn), tags=(tag,))
         self._clear_commit_diff()
 
     def _stage_select_all(self):
@@ -1088,7 +1091,7 @@ class GitManager(tk.Tk):
 
     def _on_commit_file_select(self, event=None):
         sel = self.commit_files_tree.selection()
-        if not sel or not self.selected_repo or not self._selected_commit_hash:
+        if not sel or not self.selected_repo:
             return
         values = self.commit_files_tree.item(sel[0], "values")
         if not values or len(values) < 2:
@@ -1115,7 +1118,10 @@ class GitManager(tk.Tk):
         ).start()
 
     def _bg_load_commit_diff(self, repo_path, commit_hash, filepath):
-        diff = get_commit_file_diff(repo_path, commit_hash, filepath)
+        if commit_hash is None:
+            diff = get_file_diff(repo_path, filepath)
+        else:
+            diff = get_commit_file_diff(repo_path, commit_hash, filepath)
         self.after(0, self._render_commit_diff, diff, filepath)
 
     def _set_commit_diff_loading(self):
