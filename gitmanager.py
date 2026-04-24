@@ -393,10 +393,12 @@ class GitManager(tk.Tk):
                        style=style_).pack(side="left", padx=3, pady=8)
 
         # theme selector
-        self.theme_var = tk.StringVar(value=self.current_theme)
-        theme_cb = ttk.Combobox(toolbar, textvariable=self.theme_var, values=list(THEMES.keys()), state="readonly", width=8, font=FONT_SM)
-        theme_cb.pack(side="right", padx=10, pady=10)
-        theme_cb.bind("<<ComboboxSelected>>", self._on_theme_change)
+        theme_frame = tk.Frame(toolbar, bg=BG3)
+        theme_frame.pack(side="right", padx=10, pady=10)
+        
+        ttk.Button(theme_frame, text="☾", width=3, command=lambda: self._set_theme("dark")).pack(side="right", padx=1)
+        ttk.Button(theme_frame, text="☀", width=3, command=lambda: self._set_theme("white")).pack(side="right", padx=1)
+        ttk.Button(theme_frame, text="☁", width=3, command=lambda: self._set_theme("default")).pack(side="right", padx=1)
 
         self.status_var = tk.StringVar(value="Ready")
         tk.Label(toolbar, textvariable=self.status_var, bg=BG3, fg=FG2,
@@ -903,16 +905,15 @@ class GitManager(tk.Tk):
 
         self.console_text.tag_configure("error",   foreground=RED)
         self.console_text.tag_configure("success", foreground=GREEN)
+        self.console_text.tag_configure("info",    foreground=BLUE)
+        self.console_text.tag_configure("cmd",     foreground=YELLOW)
 
-    def _on_theme_change(self, event=None):
-        new_theme = self.theme_var.get()
+    def _set_theme(self, new_theme):
         if new_theme == getattr(self, "current_theme", "default"):
             return
         self.current_theme = new_theme
         self._save_config()
         messagebox.showinfo("Theme Changed", "Please restart Git Manager to fully apply the new theme.")
-        self.console_text.tag_configure("info",    foreground=BLUE)
-        self.console_text.tag_configure("cmd",     foreground=YELLOW)
 
     # ── Config ────────────────────────────────
 
